@@ -10,4 +10,10 @@ public static class staticStuff
     public static GameObject netMan;
     public static GameObject player;
 
+    public static float carHealth = 100;
+    public static float maxCarHealth = 100;
+
+    public static int score = 0;
+    public static int ammo = 0;
+
 }

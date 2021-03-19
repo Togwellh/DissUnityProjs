@@ -56,6 +56,7 @@ public class Client : MonoBehaviour
 
     public TextMeshProUGUI text;
     public float score;
+    public int bullets = 20;
 
     Dictionary<int, GameObject> cubes = new Dictionary<int, GameObject>();
     public GameObject cube;
@@ -65,6 +66,16 @@ public class Client : MonoBehaviour
     public GameObject bullet;
     private int fireWait = 1000;
     private int fireWaitTime = 50;
+
+    public GameObject center;
+
+    public float spawnRadius = 15;
+    public int spawnWait = 50;
+    public int spawnTimer = 0;
+
+    public GameObject zombie;
+    public GameObject car;
+    public GameObject windowCracks;
 
     // Creates a connection with the Zed 2 camera project
     public void Connect()
@@ -97,10 +108,10 @@ public class Client : MonoBehaviour
 
         // Create the plane which the users head orientation ray will intersect with
         plane = new Plane(new Vector3(-30, -30, 5), new Vector3(0, 30, 5), new Vector3(30, -30, 5));
-        rb = player.GetComponent<Rigidbody>();
+        //rb = player.GetComponent<Rigidbody>();
 
         // Setup the static class to be accessed by spawned objects
-        staticStuff.player = GameObject.Find("Player");
+        //staticStuff.player = GameObject.Find("Player");
         staticStuff.netMan = GameObject.Find("NetworkStuff");
     }
 
@@ -108,8 +119,19 @@ public class Client : MonoBehaviour
     void Update()
     {
 
+        if (staticStuff.score > 0) {
+            score += staticStuff.score * 10;
+            staticStuff.score = 0;
+        }
+
+        if (staticStuff.ammo > 0)
+        {
+            bullets += staticStuff.ammo * 10;
+            staticStuff.ammo = 0;
+        }
+
         // Update the score
-        text.text = "Score : " + score;
+        text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : " + bullets;
 
         // Check for an update on the car locations
         int recHostId;
@@ -147,21 +169,47 @@ public class Client : MonoBehaviour
         if (coinWaited > coinWait)
         {
             coinWaited = 0;
-            GameObject newCoin = Instantiate(coin, new Vector3(UnityEngine.Random.Range(-width, width), 0.2f, 15), transform.rotation);
+            //GameObject newCoin = Instantiate(coin, new Vector3(UnityEngine.Random.Range(-width, width), 0.2f, 15), transform.rotation);
+        }
+
+        if (staticStuff.carHealth < 50 && windowCracks.transform.position.y > 50)
+        {
+            windowCracks.transform.position -= new Vector3(0, windowCracks.transform.position.y - 0.75f, 0);
+        }
+
+        if (staticStuff.carHealth > 50 && windowCracks.transform.position.y < 50)
+        {
+            windowCracks.transform.position += new Vector3(0, 100, 0);
         }
 
 
+        spawnTimer++;
+        if (spawnTimer > spawnWait) {
+            spawnTimer = 0;
+            GameObject newZombie = Instantiate(zombie, new Vector3(0,0,20), Quaternion.identity);
+            newZombie.transform.RotateAround(center.transform.position, Vector3.up, UnityEngine.Random.Range(0, 360));
+            newZombie.GetComponent<zombie>().car = car;
+            newZombie.GetComponent<zombie>().target = center;
+        }
 
         if (fireWait > fireWaitTime)
         {
-            if (Input.GetKeyDown("space"))
+            if (Input.GetKey(KeyCode.E) && bullets > 0)
             {
                 fireWait = 0;
-                Quaternion newRot = bulletSpawn.transform.rotation;
-                newRot.y += 90;
-                newRot.z += 90;
+                Vector3 newRot = cam.transform.eulerAngles;
 
-                GameObject newBullet = Instantiate(bullet, bulletSpawn.transform.position, newRot);
+                //newRot.x += 90;
+                //Debug.Log(newRot);
+                //newRot.y += 90;
+                //newRot.z += 90;
+                Quaternion newRotQ = new Quaternion(newRot.x, newRot.y, newRot.z, cam.transform.localRotation.w);//.normalized;
+                GameObject newBullet = Instantiate(bullet, bulletSpawn.transform.position, newRotQ);
+                //newBullet.transform.parent = bulletSpawn.transform;
+                //newBullet.transform.rotation = newRotQ;
+                //newBullet.transform.GetChild(0).GetComponent<bullet>().rot = cam.transform.rotation;
+                newBullet.GetComponent<bullet>().rot = cam.transform.rotation;
+                bullets--;
             }
         }
         else {
@@ -225,7 +273,7 @@ public class Client : MonoBehaviour
     // Updates the player position based on the user's head movement
     void FixedUpdate()
     {
-
+        /*
         Vector3 move = new Vector3(0, 0, 0);
 
         // Create a ray based on the direction the user is looking
@@ -263,6 +311,8 @@ public class Client : MonoBehaviour
 
             transform.position = tmps;
         }
+        */
+
     }
 
 }
