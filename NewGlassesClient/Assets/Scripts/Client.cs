@@ -6,12 +6,16 @@ using UnityEngine.Networking;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 using System;
+using System.Net;
+using System.Net.Sockets;
 
 using TMPro;
 using NRKernal;
 
 //http://www.robotmonkeybrain.com/good-enough-guide-to-unitys-unet-transport-layer-llapi/
-
+/// <summary>
+///  https://stackoverflow.com/questions/57070802/get-ip-address-of-all-devices-connected-on-the-same-network-in-unity
+/// </summary>
 
 // Gets the locations of other cars from the Zed 2 camera and controls the player using head orientation
 public class Client : MonoBehaviour
@@ -77,8 +81,21 @@ public class Client : MonoBehaviour
     public GameObject car;
     public GameObject windowCracks;
 
+    public TextMeshProUGUI output;
+    private System.Net.NetworkInformation.Ping p;
+
+    private int clip = 10;
+    private int reloading = 0;
+
+    public int bulletTrickleTime = 100;
+    private int buTiWaited = 0;
+
+    public float allowedAngle = 15f;
+
+    public int maxZombies = 10;
+
     // Creates a connection with the Zed 2 camera project
-    public void Connect()
+    public void Connect(String otherIP)
     {
 
         // Create the connection
@@ -88,7 +105,8 @@ public class Client : MonoBehaviour
         HostTopology topology = new HostTopology(config, maxConnections);
         socketId = NetworkTransport.AddHost(topology, 0);
         byte error;
-        connectionId = NetworkTransport.Connect(socketId, "127.0.0.1", socketPort, 0, out error);
+        connectionId = NetworkTransport.Connect(socketId, "192.168.43.42", socketPort, 0, out error);
+        //connectionId = NetworkTransport.Connect(socketId, "127.0.0.1", socketPort, 0, out error);
 
         // Report any errors
         if (error != null)
@@ -103,8 +121,14 @@ public class Client : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        // Connect to the Zed 2
-        Connect();
+
+        //String ip = getOtherIP();
+        String ip = "whatever";
+        if (ip != "")
+        {
+            // Connect to the Zed 2
+            Connect(ip);
+        }
 
         // Create the plane which the users head orientation ray will intersect with
         plane = new Plane(new Vector3(-30, -30, 5), new Vector3(0, 30, 5), new Vector3(30, -30, 5));
@@ -113,6 +137,106 @@ public class Client : MonoBehaviour
         // Setup the static class to be accessed by spawned objects
         //staticStuff.player = GameObject.Find("Player");
         staticStuff.netMan = GameObject.Find("NetworkStuff");
+
+        
+
+    }
+
+    private String getOtherIP() {
+        String hostName = "";
+        String outtxt = "";
+        try
+        {
+            // Get the local computer host name.
+            hostName = Dns.GetHostName();
+            Debug.Log("Computer name :" + hostName);
+            outtxt += "Computer name :" + hostName + "\n";
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Exception caught!!!");
+            Debug.Log("Source : " + e.Source);
+            Debug.Log("Message : " + e.Message);
+        }
+
+        IPAddress[] addresses = Dns.GetHostAddresses(hostName);
+        outtxt += "GetHostAddresses(" + hostName + ") returns:\n";
+        Debug.Log($"GetHostAddresses({hostName}) returns:");
+        String myAddr = "";
+        foreach (IPAddress address in addresses)
+        {
+            if (address.AddressFamily == AddressFamily.InterNetwork && address.ToString().Substring(0, 3) == "192")
+            {
+                myAddr = address + "";// My IP
+                break;
+            }
+            outtxt += address + "\n";
+            Debug.Log($"    {address}");
+        }
+        output.text = outtxt;
+        output.text = "Myaddr : " + myAddr;
+        Debug.Log("MYADD : " + myAddr);
+
+        p = new System.Net.NetworkInformation.Ping();
+        String outIp = pingIps("192.168.43", myAddr);
+
+        output.text += "\nHereA";
+
+        if (outIp != "")
+        {
+            output.text = "Success! : " + outIp;
+        }
+        else
+        {
+            output.text = "Trying pt 2";
+
+            for (int i = 1; i <= 255; i++)
+            {
+                outIp = pingIps("192.168." + i + ".", myAddr);
+                if (outIp != "")
+                {
+                    break;
+                }
+            }
+
+            if (outIp != "")
+            {
+                output.text += "\nSuccess! : " + outIp;
+            }
+            else
+            {
+                output.text += "\nFailure";
+            }
+
+        }
+
+        return outIp;
+    }
+
+    private String pingIps(String firstBit, String myAddr) {
+        String curIp;
+        for (int i = 1; i <= 255; i++)
+        {
+            output.text = i + "";
+            Debug.Log("Go " + DateTime.Now.ToString("HH:mm:ss tt"));
+            curIp = firstBit + "." + i;
+            try
+            {
+                System.Net.NetworkInformation.PingReply rep = p.Send(curIp, 100);
+                output.text = "pinged " + i;
+                if (rep.Status == System.Net.NetworkInformation.IPStatus.Success && curIp != myAddr)
+                {
+                    return curIp;
+                    //host is active
+                }
+            }
+            catch(Exception e)
+            {
+                output.text = e + "";
+            }
+            
+        }
+        return "";
     }
 
     // Update is called once per frame
@@ -131,7 +255,13 @@ public class Client : MonoBehaviour
         }
 
         // Update the score
-        text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : " + bullets;
+        if (reloading > 0) {
+            text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : Reloading/" + bullets;
+        }
+        else
+        {
+            text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : " + clip + "/" + bullets;
+        }
 
         // Check for an update on the car locations
         int recHostId;
@@ -184,36 +314,66 @@ public class Client : MonoBehaviour
 
 
         spawnTimer++;
-        if (spawnTimer > spawnWait) {
+        if (spawnTimer > spawnWait && staticStuff.zombieNum < maxZombies) {
             spawnTimer = 0;
-            GameObject newZombie = Instantiate(zombie, new Vector3(0,0,20), Quaternion.identity);
+            GameObject newZombie = Instantiate(zombie, new Vector3(0,0.1f,20), Quaternion.identity);
             newZombie.transform.RotateAround(center.transform.position, Vector3.up, UnityEngine.Random.Range(0, 360));
             newZombie.GetComponent<zombie>().car = car;
             newZombie.GetComponent<zombie>().target = center;
-        }
-
-        if (fireWait > fireWaitTime)
-        {
-            if (Input.GetKey(KeyCode.E) && bullets > 0)
+            Vector3 targetDir = newZombie.transform.position - car.transform.position;
+            float angle = Vector3.Angle(targetDir, car.transform.forward);
+            Debug.Log("Created with angle : " + angle);
+            if (angle > allowedAngle)
             {
-                fireWait = 0;
-                Vector3 newRot = cam.transform.eulerAngles;
-
-                //newRot.x += 90;
-                //Debug.Log(newRot);
-                //newRot.y += 90;
-                //newRot.z += 90;
-                Quaternion newRotQ = new Quaternion(newRot.x, newRot.y, newRot.z, cam.transform.localRotation.w);//.normalized;
-                GameObject newBullet = Instantiate(bullet, bulletSpawn.transform.position, newRotQ);
-                //newBullet.transform.parent = bulletSpawn.transform;
-                //newBullet.transform.rotation = newRotQ;
-                //newBullet.transform.GetChild(0).GetComponent<bullet>().rot = cam.transform.rotation;
-                newBullet.GetComponent<bullet>().rot = cam.transform.rotation;
-                bullets--;
+                Destroy(newZombie);
+                spawnTimer = spawnWait + 1;
+            }
+            else {
+                staticStuff.zombieNum++;
             }
         }
-        else {
-            fireWait++;
+
+        if (Input.GetKeyDown(KeyCode.E) && clip > 0)
+        {
+            Vector3 newRot = cam.transform.eulerAngles;
+
+            //newRot.x += 90;
+            //Debug.Log(newRot);
+            //newRot.y += 90;
+            //newRot.z += 90;
+            Quaternion newRotQ = new Quaternion(newRot.x, newRot.y, newRot.z, cam.transform.localRotation.w);//.normalized;
+            GameObject newBullet = Instantiate(bullet, bulletSpawn.transform.position, newRotQ);
+            //newBullet.transform.parent = bulletSpawn.transform;
+            //newBullet.transform.rotation = newRotQ;
+            //newBullet.transform.GetChild(0).GetComponent<bullet>().rot = cam.transform.rotation;
+            newBullet.GetComponent<bullet>().rot = cam.transform.rotation;
+            clip--;
+        }
+
+        buTiWaited++;
+        if (buTiWaited > bulletTrickleTime) {
+            buTiWaited = 0;
+            bullets++;
+        }
+
+        if (clip <= 0 && reloading <= 0) {
+            reloading = 100;
+        }
+
+        if (reloading > 0 && bullets > 0) {
+            reloading--;
+        }
+
+        if (reloading <= 0 && clip == 0) {
+            if (bullets < 10)
+            {
+                clip = bullets;
+                bullets -= clip;
+            }
+            if (bullets >= 10) {
+                clip = 10;
+                bullets -= 10;
+            }
         }
 
     }

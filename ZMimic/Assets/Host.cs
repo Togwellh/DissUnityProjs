@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using System;
+using System.Net;
+using System.Net.Sockets;
 
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
@@ -29,6 +31,8 @@ public class Host : MonoBehaviour
     StreamReader reader;
     string line;
 
+    private System.Net.NetworkInformation.Ping p;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -45,6 +49,87 @@ public class Host : MonoBehaviour
         socketId = NetworkTransport.AddHost(topology, socketPort);
         Debug.Log("Socket Open. SocketId is: " + socketId);
 
+    }
+
+    private String getOtherIP()
+    {
+        String hostName = "";
+        try
+        {
+            // Get the local computer host name.
+            hostName = Dns.GetHostName();
+            Debug.Log("Computer name :" + hostName);
+        }
+        catch (Exception e)
+        {
+            Debug.Log("Exception caught!!!");
+            Debug.Log("Source : " + e.Source);
+            Debug.Log("Message : " + e.Message);
+        }
+
+        IPAddress[] addresses = Dns.GetHostAddresses(hostName);
+        Debug.Log($"GetHostAddresses({hostName}) returns:");
+        String myAddr = "";
+        foreach (IPAddress address in addresses)
+        {
+            if (address.AddressFamily == AddressFamily.InterNetwork && address.ToString().Substring(0, 3) == "192")
+            {
+                myAddr = address + "";// My IP
+                break;
+            }
+            Debug.Log($"    {address}");
+        }
+        Debug.Log("MYADD : " + myAddr);
+
+        p = new System.Net.NetworkInformation.Ping();
+        String outIp = pingIps("192.168.43", myAddr);
+
+        if (outIp != "")
+        {
+            Debug.Log("Success! : " + outIp);
+        }
+        else
+        {
+            Debug.Log("Trying pt 2");
+
+            for (int i = 1; i <= 255; i++)
+            {
+                outIp = pingIps("192.168." + i + ".", myAddr);
+                if (outIp != "")
+                {
+                    break;
+                }
+            }
+
+            if (outIp != "")
+            {
+                Debug.Log("\nSuccess! : " + outIp);
+            }
+            else
+            {
+                Debug.Log("\nFailure");
+            }
+
+        }
+
+        return outIp;
+    }
+
+    private String pingIps(String firstBit, String myAddr)
+    {
+        String curIp;
+        for (int i = 1; i <= 255; i++)
+        {
+            Debug.Log("Go " + DateTime.Now.ToString("HH:mm:ss tt"));
+            curIp = firstBit + "." + i;
+            System.Net.NetworkInformation.PingReply rep = p.Send(curIp, 100);
+            if (rep.Status == System.Net.NetworkInformation.IPStatus.Success && curIp != myAddr)
+            {
+                return curIp;
+                //host is active
+            }
+        }
+        return "";
     }
 
     // Update is called once per frame  

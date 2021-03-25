@@ -17,6 +17,8 @@ public class zombie : MonoBehaviour
     public GameObject bullet;
     public GameObject car;
 
+    public GameObject bloodSplatter;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -52,6 +54,10 @@ public class zombie : MonoBehaviour
     void OnTriggerEnter(Collider c) {
         if (c.gameObject.name == "BulletHolder(Clone)")
         {
+            staticStuff.score += 1;
+            GameObject blood = Instantiate(bloodSplatter, c.gameObject.transform.position, c.gameObject.transform.rotation);
+            //blood.transform.rotation = Quaternion.LookRotation(-transform.forward, Vector3.up);
+            staticStuff.zombieNum--;
             Destroy(gameObject);
             Destroy(c.gameObject);
         }

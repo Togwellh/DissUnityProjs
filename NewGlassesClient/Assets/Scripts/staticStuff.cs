@@ -16,4 +16,6 @@ public static class staticStuff
     public static int score = 0;
     public static int ammo = 0;
 
+    public static int zombieNum = 0;
+
 }
