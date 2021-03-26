@@ -29,11 +29,17 @@ public class zombie : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+
+        if (staticStuff.gameOver) {
+            return;
+        }
+
         transform.LookAt(target.transform);
         Vector3 tempVect = new Vector3(0, 0, 1);
         tempVect = transform.forward;
         tempVect = tempVect.normalized * speed * Time.deltaTime;
         rb.MovePosition(transform.position + tempVect);
+
     }
 
     void OnCollisionStay(Collision collisionInfo) {
@@ -45,7 +51,7 @@ public class zombie : MonoBehaviour
         if (collisionInfo.gameObject == car) {
             if (staticStuff.carHealth > 0)
             {
-                staticStuff.carHealth -= 0.5f;
+                staticStuff.carHealth -= 0.1f;
             }
             Debug.Log("HIT CAR");
         }

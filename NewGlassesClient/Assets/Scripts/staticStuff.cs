@@ -18,4 +18,6 @@ public static class staticStuff
 
     public static int zombieNum = 0;
 
+    public static bool gameOver = false;
+
 }

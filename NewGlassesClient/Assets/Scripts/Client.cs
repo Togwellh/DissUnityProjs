@@ -8,6 +8,7 @@ using System.IO;
 using System;
 using System.Net;
 using System.Net.Sockets;
+using UnityEngine.SceneManagement;
 
 using TMPro;
 using NRKernal;
@@ -94,6 +95,14 @@ public class Client : MonoBehaviour
 
     public int maxZombies = 10;
 
+    public Material cracks;
+
+    public TextMeshProUGUI endText;
+    private int countdown = 300;
+
+    public bool controllerMode = false;
+    public GameObject gun;
+
     // Creates a connection with the Zed 2 camera project
     public void Connect(String otherIP)
     {
@@ -138,7 +147,7 @@ public class Client : MonoBehaviour
         //staticStuff.player = GameObject.Find("Player");
         staticStuff.netMan = GameObject.Find("NetworkStuff");
 
-        
+        cracks.SetTextureScale("_MainTex", new Vector2(0,0));
 
     }
 
@@ -253,14 +262,41 @@ public class Client : MonoBehaviour
             bullets += staticStuff.ammo * 10;
             staticStuff.ammo = 0;
         }
-
+        if (staticStuff.carHealth < 0) {
+            staticStuff.carHealth = 0;
+        }
         // Update the score
         if (reloading > 0) {
-            text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : Reloading/" + bullets;
+            text.text = "Score : " + score + "\nHealth : " + Math.Round(staticStuff.carHealth, 1) + "\nAmmo : Reloading/" + bullets;
         }
         else
         {
-            text.text = "Score : " + score + "\nHealth : " + staticStuff.carHealth + "\nAmmo : " + clip + "/" + bullets;
+            text.text = "Score : " + score + "\nHealth : " + Math.Round(staticStuff.carHealth, 1) + "\nAmmo : " + clip + "/" + bullets;
+        }
+
+        if (staticStuff.gameOver)
+        {
+            if (countdown > 0)
+            {
+                countdown--;
+            }
+            text.text = "";
+            endText.text = "Game Over!\nScore:" + score + "\nRestarting in " + Math.Ceiling((double)(countdown / 100)+1) + "...";
+            if (countdown <= 0) {
+                staticStuff.carHealth = staticStuff.maxCarHealth;
+                staticStuff.score = 0;
+                staticStuff.ammo = 0;
+                staticStuff.zombieNum = 0;
+                staticStuff.gameOver = false;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            }
+        }
+        else {
+            endText.text = "";
+        }
+
+        if (staticStuff.carHealth <= 0) {
+            staticStuff.gameOver = true;
         }
 
         // Check for an update on the car locations
@@ -301,7 +337,7 @@ public class Client : MonoBehaviour
             coinWaited = 0;
             //GameObject newCoin = Instantiate(coin, new Vector3(UnityEngine.Random.Range(-width, width), 0.2f, 15), transform.rotation);
         }
-
+        /*
         if (staticStuff.carHealth < 50 && windowCracks.transform.position.y > 50)
         {
             windowCracks.transform.position -= new Vector3(0, windowCracks.transform.position.y - 0.75f, 0);
@@ -311,10 +347,13 @@ public class Client : MonoBehaviour
         {
             windowCracks.transform.position += new Vector3(0, 100, 0);
         }
-
+        */
+        float newC = (float)(1 - Math.Round(staticStuff.carHealth / 100, 1));
+        cracks.SetTextureScale("_MainTex", new Vector2(newC, newC));
+        
 
         spawnTimer++;
-        if (spawnTimer > spawnWait && staticStuff.zombieNum < maxZombies) {
+        if (spawnTimer > spawnWait && staticStuff.zombieNum < maxZombies && !staticStuff.gameOver) {
             spawnTimer = 0;
             GameObject newZombie = Instantiate(zombie, new Vector3(0,0.1f,20), Quaternion.identity);
             newZombie.transform.RotateAround(center.transform.position, Vector3.up, UnityEngine.Random.Range(0, 360));
@@ -333,7 +372,12 @@ public class Client : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.E) && clip > 0)
+        if (controllerMode) {
+            //gun.transform.position = NRInput.GetPosition() + new Vector3(0,1,0);
+            gun.transform.rotation = NRInput.GetRotation();
+        }
+
+        if ((Input.GetKeyDown(KeyCode.E) || NRInput.GetButtonDown(ControllerButton.TRIGGER)) && clip > 0 && !staticStuff.gameOver)
         {
             Vector3 newRot = cam.transform.eulerAngles;
 
@@ -346,7 +390,13 @@ public class Client : MonoBehaviour
             //newBullet.transform.parent = bulletSpawn.transform;
             //newBullet.transform.rotation = newRotQ;
             //newBullet.transform.GetChild(0).GetComponent<bullet>().rot = cam.transform.rotation;
-            newBullet.GetComponent<bullet>().rot = cam.transform.rotation;
+            if (controllerMode) {
+                newBullet.GetComponent<bullet>().rot = gun.transform.rotation;
+            }
+            else
+            {
+                newBullet.GetComponent<bullet>().rot = cam.transform.rotation;
+            }
             clip--;
         }
 
