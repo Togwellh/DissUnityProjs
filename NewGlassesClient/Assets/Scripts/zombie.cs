@@ -31,6 +31,7 @@ public class zombie : MonoBehaviour
     {
 
         if (staticStuff.gameOver) {
+            Destroy(gameObject);
             return;
         }
 

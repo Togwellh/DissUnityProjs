@@ -943,7 +943,7 @@ ScriptsOnlyBuild:
     className: symbolRotate
   - hash:
       serializedVersion: 2
-      Hash: 8b0684b752fcaed965c935da23e7ecd0
+      Hash: a5a057096fcbd689a1fbd1cd0ae68a3b
     assemblyName: Assembly-CSharp.dll
     namespaceName: 
     className: Client

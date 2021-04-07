@@ -43,6 +43,9 @@ public class Client : MonoBehaviour
     public float yOff = 0;
     public float z = 0;
 
+    public float zOff = 0;
+    public float zMult = 1;
+
     // Car Kart Variables
     private Plane plane;
     private Ray ray;
@@ -103,10 +106,14 @@ public class Client : MonoBehaviour
     public bool controllerMode = false;
     public GameObject gun;
 
+    public Boolean localConnect = false;
+
+    public Boolean spawnZs = true;
+
     // Creates a connection with the Zed 2 camera project
     public void Connect(String otherIP)
     {
-
+        output.text = output.text + "starting";
         // Create the connection
         NetworkTransport.Init();
         ConnectionConfig config = new ConnectionConfig();
@@ -114,15 +121,23 @@ public class Client : MonoBehaviour
         HostTopology topology = new HostTopology(config, maxConnections);
         socketId = NetworkTransport.AddHost(topology, 0);
         byte error;
-        connectionId = NetworkTransport.Connect(socketId, "192.168.43.42", socketPort, 0, out error);
-        //connectionId = NetworkTransport.Connect(socketId, "127.0.0.1", socketPort, 0, out error);
+
+        if (!localConnect)
+        {
+            connectionId = NetworkTransport.Connect(socketId, "192.168.43.42", socketPort, 0, out error);
+        }
+        else
+        {
+            connectionId = NetworkTransport.Connect(socketId, "127.0.0.1", socketPort, 0, out error);
+        }
 
         // Report any errors
         if (error != null)
         {
             Debug.Log("Network Error : " + (NetworkError)error);
+            output.text = output.text + "Network Error : " + (NetworkError)error;
         }
-
+        output.text = output.text + " Connected to server. ConnectionId: " + connectionId;
         Debug.Log("Connected to server. ConnectionId: " + connectionId);
 
     }
@@ -133,11 +148,8 @@ public class Client : MonoBehaviour
 
         //String ip = getOtherIP();
         String ip = "whatever";
-        if (ip != "")
-        {
-            // Connect to the Zed 2
-            Connect(ip);
-        }
+        output.text = output.text + "starting connection";
+        Connect(ip);
 
         // Create the plane which the users head orientation ray will intersect with
         plane = new Plane(new Vector3(-30, -30, 5), new Vector3(0, 30, 5), new Vector3(30, -30, 5));
@@ -288,7 +300,10 @@ public class Client : MonoBehaviour
                 staticStuff.ammo = 0;
                 staticStuff.zombieNum = 0;
                 staticStuff.gameOver = false;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                countdown = 300;
+                clip = 10;
+                bullets = 20;
+                //SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex); This works on laptop but crashed on nreal
             }
         }
         else {
@@ -308,13 +323,14 @@ public class Client : MonoBehaviour
         int dataSize;
         byte error;
         NetworkEventType recNetworkEvent = NetworkTransport.Receive(out recHostId, out recConnectionId, out recChannelId, recBuffer, bufferSize, out dataSize, out error);
-
+        //output.text = output.text + "" + recNetworkEvent;
         switch (recNetworkEvent)
         {
             case NetworkEventType.Nothing:
                 break;
             case NetworkEventType.ConnectEvent:
                 Debug.Log("incoming connection event received");
+                //output.text = output.text + "connectEventReceived";
                 break;
             case NetworkEventType.DataEvent:
                 Stream stream = new MemoryStream(recBuffer);
@@ -324,6 +340,7 @@ public class Client : MonoBehaviour
                 // Parse the updated locations into the Info struct format and process it
                 Info inf = JsonUtility.FromJson<Info>(message);
                 updateCars(inf);
+                //output.text = output.text + "car update received";
                 break;
             case NetworkEventType.DisconnectEvent:
                 Debug.Log("remote client event disconnected");
@@ -353,7 +370,7 @@ public class Client : MonoBehaviour
         
 
         spawnTimer++;
-        if (spawnTimer > spawnWait && staticStuff.zombieNum < maxZombies && !staticStuff.gameOver) {
+        if (spawnTimer > spawnWait && staticStuff.zombieNum < maxZombies && !staticStuff.gameOver && spawnZs) {
             spawnTimer = 0;
             GameObject newZombie = Instantiate(zombie, new Vector3(0,0.1f,20), Quaternion.identity);
             newZombie.transform.RotateAround(center.transform.position, Vector3.up, UnityEngine.Random.Range(0, 360));
@@ -454,13 +471,13 @@ public class Client : MonoBehaviour
             // If the car does not exist already then create and register it
             if (!cubes.ContainsKey(inf.IDs[i]))
             {
-                GameObject newCube = Instantiate(cube, new Vector3((inf.Xs[i] * xMult) - xOff, (inf.Ys[i] * yMult) - yOff, inf.Zs[i]), transform.rotation);
+                GameObject newCube = Instantiate(cube, new Vector3((inf.Xs[i] * xMult) - xOff, (inf.Ys[i] * yMult) - yOff, (inf.Zs[i] * zMult) - zOff), transform.rotation);
                 newCube.transform.localScale = new Vector3(inf.widths[i] * widMult, inf.heights[i] * heiMult, inf.depths[i]);
                 cubes.Add(inf.IDs[i], newCube);
             }
             // If it does then update the position and size
             else {
-                cubes[inf.IDs[i]].transform.position = new Vector3((inf.Xs[i]* xMult) - xOff, (inf.Ys[i]* yMult) - yOff, inf.Zs[i]);
+                cubes[inf.IDs[i]].transform.position = new Vector3((inf.Xs[i]* xMult) - xOff, (inf.Ys[i]* yMult) - yOff, (inf.Zs[i] * zMult) - zOff);
                 cubes[inf.IDs[i]].transform.localScale = new Vector3(inf.widths[i] * widMult, inf.heights[i] * heiMult, inf.depths[i]);
             }
         }
