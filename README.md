@@ -36,6 +36,8 @@ Connect the laptop to the network as well. The computing unit can now be disconn
 
 Disable the laptops firewall. The glasses will not be able to connect if it is left on.
 
+**Currently the IPs are hardcoded so you will need to edit the client file to set it to whatever the IP of the laptop is.**
+
 ### Running the object recognition
 
 #### With Zed 2 camera
