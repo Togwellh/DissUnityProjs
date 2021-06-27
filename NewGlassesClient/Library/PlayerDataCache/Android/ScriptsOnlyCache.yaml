@@ -8,7 +8,6 @@ ScriptsOnlyBuild:
     - NRKernal.ControllerTracker
     - NRKernal.FinchShiftControllerVisual
     - NRKernal.GazeTracker
-    - NRKernal.MainThreadDispather
     - NRKernal.MultiScreenController
     - NRKernal.NRButton
     - NRKernal.NREmulatorController
